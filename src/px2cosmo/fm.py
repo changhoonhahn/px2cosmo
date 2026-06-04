@@ -1,0 +1,126 @@
+'''
+
+
+forward model 
+
+
+
+'''
+import os
+import numpy as np
+from scipy.special import erf
+from scipy.interpolate import CubicSpline
+
+from astropy import units as u
+from astropy.cosmology import Planck13
+
+import zeus21
+
+from . import util as U
+
+# precompute the following for sampleLF
+CosmoParams_input = zeus21.Cosmo_Parameters_Input(zmin_CLASS=0.0)
+User_Parameters = zeus21.User_Parameters()  # add this
+
+CosmoParams, _, _, _ = zeus21.cosmo_wrapper(User_Parameters, CosmoParams_input)
+
+Nz = 133
+NMUV = 300
+
+zlist   = np.linspace(4, 15, Nz)
+zwidths = np.diff(zlist)
+zwidths = np.append(zwidths,zwidths[-1])
+dzuvlf  = np.mean(zwidths) #just for UVLF calculation
+
+MUVcenters  = np.linspace(-15.,-24.,NMUV) #centers of bins
+MUVwidths   = -np.diff(MUVcenters)
+MUVwidths   = np.append(MUVwidths,MUVwidths[-1])
+
+OmegaSurvey = 38.0*(1./60.)**2 * (np.pi/180)**2 #rad^2
+#OmegaSurvey = 0.5 * (np.pi/180)**2 #rad^2
+DeltaVlist = OmegaSurvey * CosmoParams.chiofzint(zlist)**2 * dzuvlf/CosmoParams.Hofzint(zlist)
+
+z_grid  = np.linspace(4., 15., 1000)
+dl_grid = Planck13.luminosity_distance(z_grid).to(u.pc).value
+dl_spline = CubicSpline(z_grid, dl_grid)
+
+
+def forwardmodel(phi, name='test0'): 
+    ''' forward model noise model 
+    '''
+    if name == 'test0': 
+        # sample LF 
+        mock = sampleLF(phi, phi_amp=6e-3)
+    
+        # apply survey selection  
+        select = selection_function(mock, name='mock0') 
+            
+        # no noise model 
+        return mock[select]
+
+    elif name == 'test1': 
+        # sample LF 
+        mock = sampleLF(phi, phi_amp=6e-3)
+    
+        # apply survey selection  
+        select = selection_function(mock, name='mock0') 
+        
+        # homoskedastic noise model sig_z = 0.2 and sig_Muv = 0.2
+        mock[:,0] += 0.2 * np.random.normal(size=mock.shape[0])
+        mock[:,1] += 0.2 * np.random.normal(size=mock.shape[0])
+        return mock[select] 
+
+    #if name == 'mock0': 
+    #    # apply simple Gaussian noise model with noise level from CEERS z~9
+    #    # sample 
+    #    mock_Muv_1sig = 0.1 * (0.2 + 0.17*np.random.normal(size=mock.shape[0]).clip(0.1, None))
+    #    mock_Muv = mock[:,1] + mock_Muv_1sig * np.random.normal(size=mock.shape[0])
+
+    #    mock_photoz_1sig = 0.1*(0.45 + 0.35 * np.random.normal(size=mock.shape[0])).clip(0.05, None)
+    #    mock_photoz = mock[:,0] + mock_photoz_1sig * np.random.normal(size=mock.shape[0])
+
+    #    return np.array([mock_photoz, mock_Muv])
+
+
+def sampleLF(phi, phi_amp=6e-3): 
+    ''' sample UV luminosity function 
+    '''
+    UVLFlist = np.array([phi_amp * U.LF(MUVcenters, z, phi) for z in zlist])
+
+    lambdalist = UVLFlist * np.outer(DeltaVlist, MUVwidths) #avg for Poisson
+    
+    Nsample = np.random.poisson(lambdalist, ((Nz, NMUV)))
+
+    zz_grid, MUV_grid = np.meshgrid(zlist, MUVcenters, indexing='ij')
+    counts = Nsample.ravel()
+    mock = np.repeat(
+        np.column_stack([zz_grid.ravel(), MUV_grid.ravel()]),
+        counts,
+        axis=0)
+
+    return mock 
+
+
+def selection_function(mock, name='mock0'): 
+    ''' impose selection function 
+    '''
+    if name == 'mock0': 
+        prob_z = np.exp(-(mock[:,0] - 9.0)**2)
+        select_z = prob_z > np.random.uniform(size=mock.shape[0])
+
+        # convert mock absolute magnitude to apparent magnitudes
+        dl = dl_spline(mock[:,0])
+        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+
+        # m_uv selection weights
+        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+
+        return select_z & select_muv
+
+
+
+
+def _select_muv(muv, c_erf0=0.9, c_erf1 = 32):
+    # m_uv based selection 
+    return 0.5*(1-erf(c_erf0*(muv - c_erf1)))
