@@ -5,4 +5,4 @@ A new neural population inference framework for constraining cosmology using hig
 
 ## authors
 * ChangHoon Hahn (UT Austin) 
-* Julian Munoz (UT Austin) 
+* Julian Muñoz (UT Austin) 
