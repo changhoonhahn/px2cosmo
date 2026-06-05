@@ -7,7 +7,8 @@ import os, sys
 import numpy as np 
 from px2cosmo import fm as FM 
 
-Nmocks = int(sys.argv[1]) 
+Nmocks  = int(sys.argv[1]) 
+fdown   = int(sys.argv[2])  
 
 # sample LF parameters 
 # phi_true = np.array([-1.65, -1.5, -0.2, -19.5]) # fit by eye to zeus21 output
@@ -21,13 +22,11 @@ phis, all_mocks_nonoise, all_mocks = [], [], []
 for i in range(Nmocks): 
     phi = np.array([alphas[i], betas[i], gammas[i], Muvss[i]])
 
-    # sample LF 
-    mock = FM.sampleLF(phi, phi_amp=6e-3)
+    # froward model 
+    mock = FM.forwardmodel(phi, name='test0')
     
-    # survey selection  
-    select = FM.selection_function(mock, name='mock0') 
-    all_mocks.append(mock[select]) 
-    phis.append(np.tile(phi, (np.sum(select), 1)))
+    all_mocks.append(mock[::fdown]) 
+    phis.append(np.tile(phi, (mock.shape[0], 1))[::fdown])
 
 np.save('/Users/chang/data/px2cosmo/test0/mock0_data.npy', 
         np.concatenate(all_mocks, axis=0))

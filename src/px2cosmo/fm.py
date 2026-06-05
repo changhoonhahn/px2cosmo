@@ -53,7 +53,7 @@ def forwardmodel(phi, name='test0'):
         mock = sampleLF(phi, phi_amp=6e-3)
     
         # apply survey selection  
-        select = selection_function(mock, name='mock0') 
+        select = selection_function(mock, name='multiple') 
             
         # no noise model 
         return mock[select]
@@ -104,7 +104,7 @@ def sampleLF(phi, phi_amp=6e-3):
 def selection_function(mock, name='mock0'): 
     ''' impose selection function 
     '''
-    if name == 'mock0': 
+    if name == 'single': 
         prob_z = np.exp(-(mock[:,0] - 9.0)**2)
         select_z = prob_z > np.random.uniform(size=mock.shape[0])
 
@@ -118,7 +118,27 @@ def selection_function(mock, name='mock0'):
 
         return select_z & select_muv
 
+    elif name == 'multiple': 
+        prob_z0 = np.exp(-(mock[:,0] - 7.0)**2)
+        select_z0 = prob_z0 > np.random.uniform(size=mock.shape[0])
 
+        prob_z1 = np.exp(-(mock[:,0] - 9.0)**2)
+        select_z1 = (prob_z1 > np.random.uniform(size=mock.shape[0])) & (~select_z0)
+
+        prob_z2 = np.exp(-(mock[:,0] - 11.0)**2)
+        select_z2 = (prob_z2 > np.random.uniform(size=mock.shape[0])) & (~select_z0) & (~select_z1)
+
+        select_z = select_z0 | select_z1 | select_z2
+        
+        # convert mock absolute magnitude to apparent magnitudes
+        dl = dl_spline(mock[:,0])
+        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+
+        # m_uv selection weights
+        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+
+        return select_z & select_muv
 
 
 def _select_muv(muv, c_erf0=0.9, c_erf1 = 32):
