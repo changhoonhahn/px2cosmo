@@ -28,13 +28,12 @@ Nz = 133
 NMUV = 300
 
 zlist   = np.linspace(4, 15, Nz)
-zwidths = np.diff(zlist)
-zwidths = np.append(zwidths,zwidths[-1])
-dzuvlf  = np.mean(zwidths) #just for UVLF calculation
+dzuvlf  = np.diff(zlist)[0] #just for UVLF calculation
 
 MUVcenters  = np.linspace(-15.,-24.,NMUV) #centers of bins
 MUVwidths   = -np.diff(MUVcenters)
 MUVwidths   = np.append(MUVwidths,MUVwidths[-1])
+dMUV        = MUVwidths[0]
 
 OmegaSurvey = 38.0*(1./60.)**2 * (np.pi/180)**2 #rad^2
 #OmegaSurvey = 0.5 * (np.pi/180)**2 #rad^2
@@ -98,6 +97,9 @@ def sampleLF(phi, phi_amp=6e-3):
         counts,
         axis=0)
 
+    # remove discreteness 
+    mock[:,0] += dzuvlf * np.random.uniform(size=mock.shape[0])
+    mock[:,1] += dMUV * np.random.uniform(size=mock.shape[0])
     return mock 
 
 
