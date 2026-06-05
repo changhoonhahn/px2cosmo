@@ -15,24 +15,36 @@ from sbi.neural_nets import posterior_nn
 
 # input 
 study_name  = sys.argv[1]
+Nmocks  = int(sys.argv[2]) 
+fdown   = int(sys.argv[3])  
+outdir  = sys.argv[4]
 
 # optuna settings
-n_trials    = 100
+n_trials    = 1000
 n_startup_trials = 20 
 n_jobs      = 1
-output_dir  = '/Users/chang/data/px2cosmo/test0/nde/'
+output_dir  = os.path.join(outdir, 'nde') 
 storage     = 'sqlite:///%s/%s/%s.db' % (output_dir, study_name, study_name)
 
+# cpu/gpu
+seed = 12387
+torch.manual_seed(seed)
+cuda = torch.cuda.is_available()
+if cuda:
+    torch.cuda.manual_seed(seed)
+device = ("cuda" if cuda else "cpu")
+
 # load data 
-params  = np.load("/Users/chang/data/px2cosmo/test0/mock0_params.npy")
-data    = np.load("/Users/chang/data/px2cosmo/test0/mock0_data.npy")
+params  = np.load(os.path.join(outdir, "mock0_N%ifdown%i.params.npy" % (Nmocks, fdown)))
+data    = np.load(os.path.join(outdir, "mock0_N%ifdown%i.data.npy" % (Nmocks, fdown)))
+
 
 # shuffle data 
 ishuffle = np.arange(params.shape[0])
 np.random.shuffle(ishuffle)
 
-_phi = torch.tensor(params[ishuffle][:int(params.shape[0]*0.9)].astype(np.float32))
-_X = torch.tensor(data[ishuffle][:int(params.shape[0]*0.9)].astype(np.float32))
+_phi = torch.tensor(params[ishuffle][:int(params.shape[0]*0.9)].astype(np.float32)).to(device)
+_X = torch.tensor(data[ishuffle][:int(params.shape[0]*0.9)].astype(np.float32)).to(device)
 
 
 def Objective(trial): 
@@ -46,11 +58,10 @@ def Objective(trial):
     nde = posterior_nn(nde_model,
                        hidden_features=n_hidden,
                        num_transforms=n_transf,
-                       num_bins=n_bins
-                       )
+                       num_bins=n_bins)
 
     # neural inference  
-    inference = NPE(density_estimator=nde)
+    inference = NPE(density_estimator=nde, device=device)
     _ = inference.append_simulations(_X, _phi).train()
 
     p_X_phi = inference.build_posterior()
@@ -62,7 +73,6 @@ def Objective(trial):
     # best validation loss 
     best_valid_log_prob = inference._summary['best_validation_loss'][0]
     return -1*best_valid_log_prob 
-
 
 
 sampler     = optuna.samplers.TPESampler(n_startup_trials=n_startup_trials)

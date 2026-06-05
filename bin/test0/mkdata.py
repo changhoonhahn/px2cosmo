@@ -9,6 +9,7 @@ from px2cosmo import fm as FM
 
 Nmocks  = int(sys.argv[1]) 
 fdown   = int(sys.argv[2])  
+outdir  = sys.argv[3]
 
 # sample LF parameters 
 # phi_true = np.array([-1.65, -1.5, -0.2, -19.5]) # fit by eye to zeus21 output
@@ -28,7 +29,5 @@ for i in range(Nmocks):
     all_mocks.append(mock[::fdown]) 
     phis.append(np.tile(phi, (mock.shape[0], 1))[::fdown])
 
-np.save('/Users/chang/data/px2cosmo/test0/mock0_data.npy', 
-        np.concatenate(all_mocks, axis=0))
-np.save('/Users/chang/data/px2cosmo/test0/mock0_params.npy', 
-        np.concatenate(phis, axis=0))
+np.save(os.path.join(outdir, 'mock0_N%ifdown%i.data.npy' % (Nmocks, fdown)), np.concatenate(all_mocks, axis=0))
+np.save(os.path.join(outdir, 'mock0_N%ifdown%i.params.npy' % (Nmocks, fdown)), np.concatenate(phis, axis=0))
