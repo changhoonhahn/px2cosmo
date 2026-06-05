@@ -24,6 +24,7 @@ n_trials    = 1000
 n_startup_trials = 20 
 n_jobs      = 1
 output_dir  = os.path.join(outdir, 'nde') 
+os.system('mkdir -p %s' % os.path.join(output_dir, study_name))  
 storage     = 'sqlite:///%s/%s/%s.db' % (output_dir, study_name, study_name)
 
 # cpu/gpu
