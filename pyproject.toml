@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "px2cosmo"
+version = "0.1.0"
+description = "Photometric-redshift posteriors to cosmology: UV luminosity function inference"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "astropy",
+    "emcee",
+    "corner",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+# zeus21 and classy must be installed manually (not on PyPI):
+#   pip install zeus21
+#   pip install classy  (or install CLASS from source)
+fm = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
