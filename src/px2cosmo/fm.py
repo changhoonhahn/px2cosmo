@@ -44,41 +44,35 @@ dl_grid = Planck13.luminosity_distance(z_grid).to(u.pc).value
 dl_spline = CubicSpline(z_grid, dl_grid)
 
 
-def forwardmodel(phi, name='test0'): 
+def forwardmodel(phi, name='test0', phi_amp=6e-3): 
     ''' forward model noise model 
     '''
+    # sample LF 
+    mock = sampleLF(phi, phi_amp=phi_amp)
+
+    # apply survey selection  
+    select = selection_function(mock, name='multiple') 
+
     if name == 'test0': 
-        # sample LF 
-        mock = sampleLF(phi, phi_amp=6e-3)
-    
-        # apply survey selection  
-        select = selection_function(mock, name='multiple') 
-            
         # no noise model 
         return mock[select]
 
     elif name == 'test1': 
-        # sample LF 
-        mock = sampleLF(phi, phi_amp=6e-3)
-    
-        # apply survey selection  
-        select = selection_function(mock, name='mock0') 
-        
         # homoskedastic noise model sig_z = 0.2 and sig_Muv = 0.2
         mock[:,0] += 0.2 * np.random.normal(size=mock.shape[0])
         mock[:,1] += 0.2 * np.random.normal(size=mock.shape[0])
         return mock[select] 
 
-    #if name == 'mock0': 
-    #    # apply simple Gaussian noise model with noise level from CEERS z~9
-    #    # sample 
-    #    mock_Muv_1sig = 0.1 * (0.2 + 0.17*np.random.normal(size=mock.shape[0]).clip(0.1, None))
-    #    mock_Muv = mock[:,1] + mock_Muv_1sig * np.random.normal(size=mock.shape[0])
+    elif name == 'test2': 
+        # apply simple Gaussian noise model with noise that sufficiently 
+        # encompass noise levels of the CEERS sample 
+        sig_photoz = np.random.uniform(0.05, 1, size=mock.shape[0])
+        mock_photoz = mock[:,0] + sig_photoz * np.random.normal(size=mock.shape[0])
+        
+        sig_Muv = np.random.uniform(0.05, 0.5, size=mock.shape[0])
+        mock_Muv = mock[:,1] + sig_Muv * np.random.normal(size=mock.shape[0])
 
-    #    mock_photoz_1sig = 0.1*(0.45 + 0.35 * np.random.normal(size=mock.shape[0])).clip(0.05, None)
-    #    mock_photoz = mock[:,0] + mock_photoz_1sig * np.random.normal(size=mock.shape[0])
-
-    #    return np.array([mock_photoz, mock_Muv])
+        return np.vstack([mock_photoz, mock_Muv, sig_photoz, sig_Muv]).T[select]
 
 
 def sampleLF(phi, phi_amp=6e-3): 
