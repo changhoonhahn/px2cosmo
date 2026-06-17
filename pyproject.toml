@@ -22,5 +22,8 @@ dependencies = [
 #   pip install classy  (or install CLASS from source)
 fm = []
 
+# for the graphical-model (PGM) diagrams in bin/mock_test*
+diagrams = ["daft-pgm"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
