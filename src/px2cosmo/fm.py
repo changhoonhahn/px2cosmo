@@ -50,20 +50,40 @@ def forwardmodel(phi, name='test0', phi_amp=6e-3):
     # sample LF 
     mock = sampleLF(phi, phi_amp=phi_amp)
 
-    # apply survey selection  
-    select = selection_function(mock, name='multiple') 
-
     if name == 'test0': 
+        # apply survey selection  
+        select = selection_function(mock, name='multiple') 
+
         # no noise model 
         return mock[select]
 
     elif name == 'test1': 
+        # apply survey selection  
+        select = selection_function(mock, name='multiple') 
+
         # homoskedastic noise model sig_z = 0.2 and sig_Muv = 0.2
         mock[:,0] += 0.2 * np.random.normal(size=mock.shape[0])
         mock[:,1] += 0.2 * np.random.normal(size=mock.shape[0])
         return mock[select] 
 
     elif name == 'test2': 
+        # apply survey selection  
+        select = selection_function(mock, name='multiple') 
+
+        # apply simple Gaussian noise model with noise that sufficiently 
+        # encompass noise levels of the CEERS sample 
+        sig_photoz = np.random.uniform(0.05, 1, size=mock.shape[0])
+        mock_photoz = mock[:,0] + sig_photoz * np.random.normal(size=mock.shape[0])
+        
+        sig_Muv = np.random.uniform(0.05, 0.5, size=mock.shape[0])
+        mock_Muv = mock[:,1] + sig_Muv * np.random.normal(size=mock.shape[0])
+
+        return np.vstack([mock_photoz, mock_Muv, sig_photoz, sig_Muv]).T[select]
+    
+    elif name in ['z7', 'z9', 'z11']: 
+        # apply survey selection  
+        select = selection_function(mock, name=name) 
+
         # apply simple Gaussian noise model with noise that sufficiently 
         # encompass noise levels of the CEERS sample 
         sig_photoz = np.random.uniform(0.05, 1, size=mock.shape[0])
@@ -100,8 +120,36 @@ def sampleLF(phi, phi_amp=6e-3):
 def selection_function(mock, name='mock0'): 
     ''' impose selection function 
     '''
-    if name == 'single': 
+    if name == 'z7': 
+        prob_z = np.exp(-(mock[:,0] - 7.0)**2)
+        select_z = prob_z > np.random.uniform(size=mock.shape[0])
+
+        # convert mock absolute magnitude to apparent magnitudes
+        dl = dl_spline(mock[:,0])
+        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+
+        # m_uv selection weights
+        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+
+        return select_z & select_muv
+    
+    elif name == 'z9': 
         prob_z = np.exp(-(mock[:,0] - 9.0)**2)
+        select_z = prob_z > np.random.uniform(size=mock.shape[0])
+
+        # convert mock absolute magnitude to apparent magnitudes
+        dl = dl_spline(mock[:,0])
+        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+
+        # m_uv selection weights
+        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+
+        return select_z & select_muv
+
+    elif name == 'z11': 
+        prob_z = np.exp(-(mock[:,0] - 11.0)**2)
         select_z = prob_z > np.random.uniform(size=mock.shape[0])
 
         # convert mock absolute magnitude to apparent magnitudes

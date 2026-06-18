@@ -3,17 +3,17 @@ useful functions
 '''
 import os
 import torch
-import optuna
+#import optuna
 import numpy as np 
 from scipy.special import erf, erfinv
 
 
-def best_model(study_name, output_dir):
-    storage = 'sqlite:///%s/%s/%s.db' % (output_dir, study_name, study_name)
-    study   = optuna.load_study(study_name=study_name, storage=storage)
-    best    = study.best_trial
-    fmodel  = os.path.join(output_dir, study_name, '%s.%i.pt' % (study_name, best.number))
-    return torch.load(fmodel), best
+#def best_model(study_name, output_dir):
+#    storage = 'sqlite:///%s/%s/%s.db' % (output_dir, study_name, study_name)
+#    study   = optuna.load_study(study_name=study_name, storage=storage)
+#    best    = study.best_trial
+#    fmodel  = os.path.join(output_dir, study_name, '%s.%i.pt' % (study_name, best.number))
+#    return torch.load(fmodel), best
 
 
 def LF(Muv, z, phi):
