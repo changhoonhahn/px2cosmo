@@ -11,9 +11,13 @@ dependencies = [
     "numpy",
     "scipy",
     "astropy",
+    "torch",
+    "sbi",
     "emcee",
     "corner",
     "matplotlib",
+    "optuna",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +28,9 @@ fm = []
 
 # for the graphical-model (PGM) diagrams in bin/mock_test*
 diagrams = ["daft-pgm"]
+
+# for posterior coverage validation in notebooks
+notebooks = ["tarp"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
