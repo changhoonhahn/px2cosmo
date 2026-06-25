@@ -21,7 +21,7 @@ z_bin       = sys.argv[2]
 outdir      = sys.argv[3]
 
 # optuna settings
-n_trials    = 1000
+n_trials    = 50
 n_startup_trials = 20 
 n_jobs      = 1
 output_dir  = os.path.join(outdir, 'nde') 
