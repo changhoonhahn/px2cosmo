@@ -24,6 +24,8 @@ def parse_args():
             help="training data")
     parser.add_argument("--study-dir", required=True, 
             help="directory to save the optuna study")
+    parser.add_argument("--batch-size", type=int, default=512, 
+            help="batch size") 
     parser.add_argument("--njobs", type=int, default=1, 
             help="number of optuna jobs") 
     parser.add_argument('--verbose', action='store_true')
@@ -38,7 +40,6 @@ if __name__=="__main__":
     # optuna settings
     n_trials            = 1000 
     n_startup_trials    = 20 
-    n_jobs              = args.njobs
     os.system('mkdir -p %s' % os.path.join(args.study_dir, args.study_name))  
     storage     = 'sqlite:///%s/%s/%s.db' % (args.study_dir, args.study_name, args.study_name)
     if args.verbose: print('writing ndes to %s' % os.path.join(args.study_dir, args.study_name))
@@ -93,8 +94,8 @@ if __name__=="__main__":
         # neural inference  
         inference = NPE(density_estimator=nde, device=device)
         _ = inference.append_simulations(_Xs, _omegas).train(
-                training_batch_size=512, 
-                learning_rate=5e-3)
+                training_batch_size=args.batch_size, 
+                learning_rate=5e-4*(args.batch_size/50)) # scaled batch size 
         p_X_omegasig = inference.build_posterior()
 
         # save trained NPE  
@@ -113,4 +114,4 @@ if __name__=="__main__":
             direction="minimize", 
             load_if_exists=True)
 
-    study.optimize(Objective, n_trials=n_trials, n_jobs=n_jobs)
+    study.optimize(Objective, n_trials=n_trials, n_jobs=args.njobs)
