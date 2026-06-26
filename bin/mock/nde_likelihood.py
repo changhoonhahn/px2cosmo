@@ -11,8 +11,6 @@ import numpy as np
 import torch
 import optuna
 
-from px2cosmo import util as UT
-
 from sbi.inference import NPE
 from sbi.neural_nets import posterior_nn
 
@@ -28,6 +26,8 @@ def parse_args():
             help="batch size") 
     parser.add_argument("--njobs", type=int, default=1, 
             help="number of optuna jobs") 
+    parser.add_argument('--cpu', action='store_true',
+            help="force CPU even if MPS/CUDA is available")
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--test', action='store_true')
     return parser.parse_args()
@@ -47,12 +47,14 @@ if __name__=="__main__":
     # cpu/gpu
     seed = 12387
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed) 
+    if args.cpu:
+        device = "cpu"
+    elif torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
         device = "cuda"
     elif torch.backends.mps.is_available():
         device = "mps"
-    else: 
+    else:
         device = "cpu"
     if args.verbose: print(f'device: {device}') 
 
@@ -91,11 +93,23 @@ if __name__=="__main__":
                            num_transforms=n_transf,
                            num_bins=n_bins)
 
-        # neural inference  
+        # neural inference with staged training for pruning
         inference = NPE(density_estimator=nde, device=device)
-        _ = inference.append_simulations(_Xs, _omegas).train(
-                training_batch_size=args.batch_size, 
-                learning_rate=5e-4*(args.batch_size/50)) # scaled batch size 
+        inference.append_simulations(_Xs, _omegas)
+
+        for chunk in range(10):
+            _ = inference.train(
+                    training_batch_size=args.batch_size,
+                    learning_rate=5e-4*(args.batch_size/50),
+                    max_num_epochs=(chunk + 1) * 30,
+                    resume_training=(chunk > 0),
+                    show_train_summary=False,
+                )
+            val_loss = inference._summary['best_validation_loss'][-1]
+            trial.report(val_loss, chunk)
+            if trial.should_prune():
+                raise optuna.exceptions.TrialPruned()
+
         p_X_omegasig = inference.build_posterior()
 
         # save trained NPE  
@@ -107,11 +121,13 @@ if __name__=="__main__":
         return best_valid_log_prob 
 
 
+    pruner  = optuna.pruners.MedianPruner(n_startup_trials=n_startup_trials)
     sampler = optuna.samplers.TPESampler(n_startup_trials=n_startup_trials)
-    study   = optuna.create_study(study_name=args.study_name, 
-            sampler=sampler, 
-            storage=storage, 
-            direction="minimize", 
+    study   = optuna.create_study(study_name=args.study_name,
+            sampler=sampler,
+            pruner=pruner,
+            storage=storage,
+            direction="minimize",
             load_if_exists=True)
 
     study.optimize(Objective, n_trials=n_trials, n_jobs=args.njobs)
