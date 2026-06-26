@@ -21,9 +21,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("study_name", help='optuna study name') 
     parser.add_argument("--training-data-file", required=True, 
-        help="training data")
+            help="training data")
     parser.add_argument("--study-dir", required=True, 
-        help="directory to save the optuna study")
+            help="directory to save the optuna study")
+    parser.add_argument("--njobs", type=int, default=1, 
+            help="number of optuna jobs") 
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--test', action='store_true')
     return parser.parse_args()
@@ -36,7 +38,7 @@ if __name__=="__main__":
     # optuna settings
     n_trials            = 1000 
     n_startup_trials    = 20 
-    n_jobs              = 1
+    n_jobs              = args.njobs
     os.system('mkdir -p %s' % os.path.join(args.study_dir, args.study_name))  
     storage     = 'sqlite:///%s/%s/%s.db' % (args.study_dir, args.study_name, args.study_name)
     if args.verbose: print('writing ndes to %s' % os.path.join(args.study_dir, args.study_name))
@@ -54,7 +56,7 @@ if __name__=="__main__":
     if args.verbose: print(f'device: {device}') 
 
     # load data 
-    _data = np.loadtxt(args.training_data_file, skiprows=1)
+    _data = np.load(args.training_data_file)
     omegas  = _data[:,:4]
     Xs      = _data[:,4:6]
     sigs    = _data[:,6:]
@@ -90,7 +92,9 @@ if __name__=="__main__":
 
         # neural inference  
         inference = NPE(density_estimator=nde, device=device)
-        _ = inference.append_simulations(_Xs, _omegas).train()
+        _ = inference.append_simulations(_Xs, _omegas).train(
+                training_batch_size=512, 
+                learning_rate=5e-3)
         p_X_omegasig = inference.build_posterior()
 
         # save trained NPE  
