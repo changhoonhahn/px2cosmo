@@ -79,6 +79,7 @@ if __name__=="__main__":
 
     _omegas = torch.tensor(np.hstack([omegas, sigs])[ishuffle].astype(np.float32)).to(device)
     _Xs     = torch.tensor(Xs[ishuffle].astype(np.float32)).to(device)
+    if args.verbose: print('training data loaded to device') 
 
     def Objective(trial): 
         # hyperparameters
@@ -130,4 +131,5 @@ if __name__=="__main__":
             direction="minimize",
             load_if_exists=True)
 
+    if args.verbose: print('starting optimize') 
     study.optimize(Objective, n_trials=n_trials, n_jobs=args.njobs)
