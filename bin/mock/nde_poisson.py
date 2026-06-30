@@ -43,11 +43,11 @@ else:
 _data = np.loadtxt("/Users/ch54662/data/px2cosmo/mock/mock_N20000_poisson.dat", skiprows=1)
 omegas = _data[:,:-3]
 
-if z_bin == 'z11': 
+if z_bin == 'z14': 
     Ns = _data[:,-3]
-elif z_bin == 'z9': 
+elif z_bin == 'z11': 
     Ns = _data[:,-2]
-elif z_bin == 'z7': 
+elif z_bin == 'z9': 
     Ns = _data[:,-1]
 
 Nmock = omegas.shape[0]
