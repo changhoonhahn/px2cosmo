@@ -26,13 +26,13 @@ omegas = np.array([
 
 fdata = os.path.join(outdir, 'mock_N%i_poisson.dat' % Nmocks)
 with open(fdata, "w") as f:
-    f.write("# alpha, beta, gamma, Mnuvs, phi_amp, N(z=11), N(z=9), N(z=7)\n")
+    f.write("# alpha, beta, gamma, Mnuvs, phi_amp, N(z=14), N(z=11), N(z=9)\n")
 
 for i in tqdm(range(Nmocks)): 
     # forward model 
-    mock0 = FM.forwardmodel(omegas[i,:-1], name='z11', phi_amp=omegas[i,-1])
-    mock1 = FM.forwardmodel(omegas[i,:-1], name='z9', phi_amp=omegas[i,-1])
-    mock2 = FM.forwardmodel(omegas[i,:-1], name='z7', phi_amp=omegas[i,-1])
+    mock0 = FM.forwardmodel(omegas[i,:-1], name='z14', phi_amp=omegas[i,-1])
+    mock1 = FM.forwardmodel(omegas[i,:-1], name='z11', phi_amp=omegas[i,-1])
+    mock2 = FM.forwardmodel(omegas[i,:-1], name='z9', phi_amp=omegas[i,-1])
 
     with open(fdata, "a") as f:
         f.write(" ".join(map(str, omegas[i])) + " " +  

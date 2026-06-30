@@ -33,7 +33,7 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__=="__main__": 
+def main():
     # parse arguments 
     args = parse_args()
 
@@ -43,6 +43,7 @@ if __name__=="__main__":
     os.system('mkdir -p %s' % os.path.join(args.study_dir, args.study_name))  
     storage     = 'sqlite:///%s/%s/%s.db' % (args.study_dir, args.study_name, args.study_name)
     if args.verbose: print('writing ndes to %s' % os.path.join(args.study_dir, args.study_name))
+    if args.verbose: print(f'batch size:{args.batch_size}, njobs:{args.njobs}') 
 
     # cpu/gpu
     seed = 12387
@@ -69,18 +70,9 @@ if __name__=="__main__":
     if args.test: 
         max_Nmock = 500
     else: 
-        max_Nmock = 5000000
+        max_Nmock = 500000
 
-    if Nmock < max_Nmock: 
-        ishuffle = np.arange(Nmock)
-        np.random.shuffle(ishuffle)
-    else: 
-        ishuffle = np.random.choice(np.arange(Nmock), max_Nmock, replace=False)
-
-    _omegas = torch.tensor(np.hstack([omegas, sigs])[ishuffle].astype(np.float32)).to(device)
-    _Xs     = torch.tensor(Xs[ishuffle].astype(np.float32)).to(device)
-    if args.verbose: print('training data loaded to device') 
-
+    
     def Objective(trial): 
         # hyperparameters
         nde_model   = trial.suggest_categorical("nde_model", ['zuko_maf', 'zuko_nsf'])
@@ -93,6 +85,16 @@ if __name__=="__main__":
                            hidden_features=n_hidden,
                            num_transforms=n_transf,
                            num_bins=n_bins)
+
+        if Nmock < max_Nmock: 
+            ishuffle = np.arange(Nmock)
+            np.random.shuffle(ishuffle)
+        else: 
+            ishuffle = np.random.choice(np.arange(Nmock), max_Nmock, replace=False)
+
+        _omegas = torch.tensor(np.hstack([omegas, sigs])[ishuffle].astype(np.float32)).to(device)
+        _Xs     = torch.tensor(Xs[ishuffle].astype(np.float32)).to(device)
+        if args.verbose: print('training data loaded to device') 
 
         # neural inference with staged training for pruning
         inference = NPE(density_estimator=nde, device=device)
@@ -133,3 +135,6 @@ if __name__=="__main__":
 
     if args.verbose: print('starting optimize') 
     study.optimize(Objective, n_trials=n_trials, n_jobs=args.njobs)
+
+if __name__=="__main__": 
+    main()

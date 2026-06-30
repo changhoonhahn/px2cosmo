@@ -22,24 +22,24 @@ omegas = np.array([
 ]).T
 
 
-fdata0 = os.path.join(outdir, 'mock_N%i_z11.dat' % Nmocks)
+fdata0 = os.path.join(outdir, 'mock_N%i_z14.dat' % Nmocks)
 with open(fdata0, "w") as f:
     f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
 
-fdata1 = os.path.join(outdir, 'mock_N%i_z9.dat' % Nmocks)
+fdata1 = os.path.join(outdir, 'mock_N%i_z11.dat' % Nmocks)
 with open(fdata1, "w") as f:
     f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
 
-fdata2 = os.path.join(outdir, 'mock_N%i_z7.dat' % Nmocks)
+fdata2 = os.path.join(outdir, 'mock_N%i_z9.dat' % Nmocks)
 with open(fdata2, "w") as f:
     f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
 
 
 for i in tqdm(range(Nmocks)): 
     # forward model 
-    mock0 = FM.forwardmodel(omegas[i], name='z11', phi_amp=6e-3)
-    mock1 = FM.forwardmodel(omegas[i], name='z9', phi_amp=6e-3)
-    mock2 = FM.forwardmodel(omegas[i], name='z7', phi_amp=6e-3)
+    mock0 = FM.forwardmodel(omegas[i], name='z14', phi_amp=6e-3)
+    mock1 = FM.forwardmodel(omegas[i], name='z11', phi_amp=6e-3)
+    mock2 = FM.forwardmodel(omegas[i], name='z9', phi_amp=6e-3)
 
     with open(fdata0, "a") as f:
         for row in mock0:
