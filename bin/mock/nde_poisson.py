@@ -20,6 +20,8 @@ from sbi.neural_nets import posterior_nn
 def parse_args(): 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("study_name", help='optuna study name') 
+    parser.add_argument("--training-data-file", required=True, 
+            help="training data")
     parser.add_argument("--zbin", required=True, 
             help="redshift bin")
     parser.add_argument("--study-dir", required=True, 
@@ -60,7 +62,8 @@ def main():
     if args.verbose: print(f'device: {device}') 
 
     # load data 
-    _data = np.loadtxt("/Users/ch54662/data/px2cosmo/mock/mock_N20000_poisson.dat", skiprows=1)
+    _data = np.load(args.training_data_file)
+    if args.verbose: print(f'read data from {args.training_data_file}') 
     omegas = _data[:,:-3]
 
     if args.zbin == 'z14': 
@@ -74,7 +77,7 @@ def main():
     if args.verbose: print(f'N training data = {Nmock}') 
 
     # bounds for transformation 
-    bounds = np.array([[-1.8, -1.5], [-1.8, -1.2], [-0.4, 0.], [-22., -18.], [1e-3, 1e-2]])
+    bounds = np.array(UT._prior_range_default())
     # CDF transform of omega 
     omegas_t = UT.inv_cdf_transform(omegas, bounds.T)
 
