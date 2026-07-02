@@ -80,7 +80,7 @@ def forwardmodel(phi, name='test0', phi_amp=6e-3):
 
         return np.vstack([mock_photoz, mock_Muv, sig_photoz, sig_Muv]).T[select]
     
-    elif name in ['z7', 'z9', 'z11']: 
+    elif name in ['z7', 'z9', 'z11', 'z14']: 
         # apply survey selection  
         select = selection_function(mock, name=name) 
 
@@ -150,6 +150,20 @@ def selection_function(mock, name='mock0'):
 
     elif name == 'z11': 
         prob_z = np.exp(-(mock[:,0] - 11.0)**2)
+        select_z = prob_z > np.random.uniform(size=mock.shape[0])
+
+        # convert mock absolute magnitude to apparent magnitudes
+        dl = dl_spline(mock[:,0])
+        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+
+        # m_uv selection weights
+        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+
+        return select_z & select_muv
+    
+    elif name == 'z14': 
+        prob_z = np.exp(-(mock[:,0] - 14.0)**2)
         select_z = prob_z > np.random.uniform(size=mock.shape[0])
 
         # convert mock absolute magnitude to apparent magnitudes
