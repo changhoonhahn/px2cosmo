@@ -8,14 +8,6 @@ import numpy as np
 from scipy.special import erf, erfinv
 
 
-#def best_model(study_name, output_dir):
-#    storage = 'sqlite:///%s/%s/%s.db' % (output_dir, study_name, study_name)
-#    study   = optuna.load_study(study_name=study_name, storage=storage)
-#    best    = study.best_trial
-#    fmodel  = os.path.join(output_dir, study_name, '%s.%i.pt' % (study_name, best.number))
-#    return torch.load(fmodel), best
-
-
 def LF(Muv, z, phi):
     alpha, beta, gamma, Muv_s = phi
     return (10**(gamma * (z - 9.)))/(10**(0.4*(alpha + 1)*(Muv - Muv_s) + 10**(0.4*(beta + 1)*(Muv - Muv_s))))
@@ -47,3 +39,16 @@ def _inv_gaussian_cdf(x, mu, sigma):
 
     """
     return mu + sigma * np.sqrt(2) * erfinv(2 * x - 1)
+
+
+def _prior_range_default(): 
+    ''' default prior range based on preliminary mock results z=14. 
+    '''
+    ranges = [[-2., -1.4], # alpha
+              [-2., -1.2], # beta
+              [-0.4, 0.1], # gamma
+              [-22., -17.], # Muv*
+              [5e-4, 2e-3]] # phi_amp 
+    return ranges
+
+
