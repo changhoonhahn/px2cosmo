@@ -48,7 +48,7 @@ def _prior_range_default():
               [-2., -1.2], # beta
               [-0.4, 0.1], # gamma
               [-22., -17.], # Muv*
-              [5e-4, 2e-3]] # phi_amp 
+              [5e-4, 2e-2]] # phi_amp 
     return ranges
 
 
