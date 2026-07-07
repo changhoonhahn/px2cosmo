@@ -70,7 +70,7 @@ def main():
     if args.test: 
         max_Nmock = 500
     else: 
-        max_Nmock = 500000
+        max_Nmock = 100000
 
     
     def Objective(trial): 
