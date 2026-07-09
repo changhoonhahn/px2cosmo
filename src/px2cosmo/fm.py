@@ -38,10 +38,13 @@ dMUV        = MUVwidths[0]
 OmegaSurvey = 38.0*(1./60.)**2 * (np.pi/180)**2 #rad^2
 #OmegaSurvey = 0.5 * (np.pi/180)**2 #rad^2
 DeltaVlist = OmegaSurvey * CosmoParams.chiofzint(zlist)**2 * dzuvlf/CosmoParams.Hofzint(zlist)
+DeltaVwidths = np.outer(DeltaVlist, MUVwidths)  # constant; precomputed once
 
 z_grid  = np.linspace(4., 15., 1000)
 dl_grid = Planck13.luminosity_distance(z_grid).to(u.pc).value
 dl_spline = CubicSpline(z_grid, dl_grid)
+
+_Z_CENTERS = {'z7': 7.0, 'z9': 9.0, 'z11': 11.0, 'z14': 14.0}
 
 
 def forwardmodel(phi, name='test0', phi_amp=6e-3): 
@@ -95,12 +98,19 @@ def forwardmodel(phi, name='test0', phi_amp=6e-3):
         return np.vstack([mock_photoz, mock_Muv, sig_photoz, sig_Muv]).T[select]
 
 
-def sampleLF(phi, phi_amp=6e-3): 
-    ''' sample UV luminosity function 
+def sampleLF(phi, phi_amp=6e-3):
+    ''' sample UV luminosity function
     '''
-    UVLFlist = np.array([phi_amp * U.LF(MUVcenters, z, phi) for z in zlist])
+    alpha, beta, gamma, Muv_s = phi
+    # LF(Muv, z) = 10^(gamma*(z-9)) * f(Muv) — factor into outer product
+    z_factor = phi_amp * 10**(gamma * (zlist - 9.))                                         
+    dmuv = MUVcenters - Muv_s
+    inner = np.clip(0.4*(beta+1)*dmuv, -300, 300)
+    outer = np.clip(0.4*(alpha+1)*dmuv + 10**inner, -300, 300)
+    muv_factor = 1.0 / 10**outer
+    UVLFlist = np.outer(z_factor, muv_factor)                                               
 
-    lambdalist = UVLFlist * np.outer(DeltaVlist, MUVwidths) #avg for Poisson
+    lambdalist = UVLFlist * DeltaVwidths  #avg for Poisson
     
     Nsample = np.random.poisson(lambdalist, ((Nz, NMUV)))
 
@@ -117,64 +127,33 @@ def sampleLF(phi, phi_amp=6e-3):
     return mock 
 
 
-def selection_function(mock, name='mock0'): 
-    ''' impose selection function 
+def selection_function(mock, name='z9'):
+    ''' impose selection function
     '''
-    if name == 'z7': 
-        prob_z = np.exp(-(mock[:,0] - 7.0)**2)
-        select_z = prob_z > np.random.uniform(size=mock.shape[0])
+    z_c = _Z_CENTERS[name]
+    prob_z = np.exp(-(mock[:,0] - z_c)**2)
+    select_z = prob_z > np.random.uniform(size=mock.shape[0])
 
-        # convert mock absolute magnitude to apparent magnitudes
-        dl = dl_spline(mock[:,0])
-        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+    dl = dl_spline(mock[:,0])
+    mock_muv = mock[:,1] + 5 * np.log10(dl / 10.)
+    w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
+    select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
 
-        # m_uv selection weights
-        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
-        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
+    return select_z & select_muv
 
-        return select_z & select_muv
-    
-    elif name == 'z9': 
-        prob_z = np.exp(-(mock[:,0] - 9.0)**2)
-        select_z = prob_z > np.random.uniform(size=mock.shape[0])
 
-        # convert mock absolute magnitude to apparent magnitudes
-        dl = dl_spline(mock[:,0])
-        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
+def apply_selection_noise(mock, name):
+    ''' Apply selection function and heteroskedastic noise to a sampled catalog.
 
-        # m_uv selection weights
-        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
-        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
-
-        return select_z & select_muv
-
-    elif name == 'z11': 
-        prob_z = np.exp(-(mock[:,0] - 11.0)**2)
-        select_z = prob_z > np.random.uniform(size=mock.shape[0])
-
-        # convert mock absolute magnitude to apparent magnitudes
-        dl = dl_spline(mock[:,0])
-        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
-
-        # m_uv selection weights
-        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
-        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
-
-        return select_z & select_muv
-    
-    elif name == 'z14': 
-        prob_z = np.exp(-(mock[:,0] - 14.0)**2)
-        select_z = prob_z > np.random.uniform(size=mock.shape[0])
-
-        # convert mock absolute magnitude to apparent magnitudes
-        dl = dl_spline(mock[:,0])
-        mock_muv = mock[:,1] + 5 * np.log10(dl / 10.) 
-
-        # m_uv selection weights
-        w_muv_select = _select_muv(mock_muv, c_erf0=1., c_erf1=32)
-        select_muv = np.random.uniform(size=mock.shape[0]) < w_muv_select
-
-        return select_z & select_muv
+    Returns array of shape (N, 4): [z_obs, Muv_obs, sig_z, sig_Muv]
+    '''
+    select = selection_function(mock, name=name)
+    m = mock[select]
+    sig_photoz = np.random.uniform(0.03, 1, size=m.shape[0])
+    mock_photoz = m[:,0] + sig_photoz * np.random.normal(size=m.shape[0])
+    sig_Muv = np.random.uniform(0.01, 0.5, size=m.shape[0])
+    mock_Muv = m[:,1] + sig_Muv * np.random.normal(size=m.shape[0])
+    return np.column_stack([mock_photoz, mock_Muv, sig_photoz, sig_Muv])
 
 
 def _select_muv(muv, c_erf0=0.9, c_erf1 = 32):
