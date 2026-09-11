@@ -1,68 +1,47 @@
 '''
 
-make training data with homoskedastic noise 
+make training data with for population NLE  
 
 '''
 import os, sys
-import numpy as np 
-from tqdm import tqdm 
-from px2cosmo import fm as FM 
-from px2cosmo import util as UT 
-
-Nmocks  = int(sys.argv[1]) 
-outdir  = sys.argv[2]
-
-bounds = UT._prior_range_default()
-
-# sample LF parameters 
-# omega_true = np.array([-1.65, -1.5, -0.2, -19.5]) # fit by eye to zeus21 output
-# phi_amp = 6e-3 
-omegas = np.array([
-    np.random.uniform(bounds[0][0], bounds[0][1], size=Nmocks), 
-    np.random.uniform(bounds[1][0], bounds[1][1], size=Nmocks),
-    np.random.uniform(bounds[2][0], bounds[2][1], size=Nmocks), 
-    np.random.uniform(bounds[3][0], bounds[3][1], size=Nmocks)
-]).T
+import numpy as np
+from tqdm import tqdm
+from multiprocessing import Pool
+from px2cosmo import fm as FM
+from px2cosmo import util as UT
 
 
-fdata0 = os.path.join(outdir, 'mock_N%i_z14.v1.dat' % Nmocks)
-with open(fdata0, "w") as f:
-    f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
-
-fdata1 = os.path.join(outdir, 'mock_N%i_z11.v1.dat' % Nmocks)
-with open(fdata1, "w") as f:
-    f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
-
-fdata2 = os.path.join(outdir, 'mock_N%i_z9.v1.dat' % Nmocks)
-with open(fdata2, "w") as f:
-    f.write("# alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv \n")
+def _worker(omega):
+    # Sample LF once; apply 3 redshift-bin selections from the same catalog
+    mock = FM.sampleLF(omega, phi_amp=6e-3)
+    results = []
+    for name in ('z14', 'z11', 'z9'):
+        obs = FM.apply_selection_noise(mock, name)          # (N, 4): z, Muv, sig_z, sig_Muv
+        omega_col = np.tile(omega, (obs.shape[0], 1))       # (N, 4)
+        results.append(np.column_stack([omega_col, obs]))   # (N, 8)
+    return results
 
 
-for i in tqdm(range(Nmocks)): 
-    # forward model 
-    mock0 = FM.forwardmodel(omegas[i], name='z14', phi_amp=6e-3)
-    mock1 = FM.forwardmodel(omegas[i], name='z11', phi_amp=6e-3)
-    mock2 = FM.forwardmodel(omegas[i], name='z9', phi_amp=6e-3)
+if __name__ == '__main__':
+    Nmocks  = int(sys.argv[1])
+    outdir  = sys.argv[2]
 
-    with open(fdata0, "a") as f:
-        for row in mock0:
-            f.write(" ".join(map(str, omegas[i])) + " " + " ".join(map(str, row)) + "\n")
+    bounds = UT._prior_range_default()
 
-    with open(fdata1, "a") as f:
-        for row in mock1:
-            f.write(" ".join(map(str, omegas[i])) + " " + " ".join(map(str, row)) + "\n")
+    omegas = np.array([
+        np.random.uniform(bounds[0][0], bounds[0][1], size=Nmocks),
+        np.random.uniform(bounds[1][0], bounds[1][1], size=Nmocks),
+        np.random.uniform(bounds[2][0], bounds[2][1], size=Nmocks),
+        np.random.uniform(bounds[3][0], bounds[3][1], size=Nmocks)
+    ]).T
 
-    with open(fdata2, "a") as f:
-        for row in mock2:
-            f.write(" ".join(map(str, omegas[i])) + " " + " ".join(map(str, row)) + "\n")
+    with Pool() as pool:
+        results = list(tqdm(pool.imap(_worker, omegas), total=Nmocks))
 
-# save to numpy for faster I/O
-data = np.loadtxt(fdata0, skiprows=1) 
-np.save(fdata0.replace('.dat', '.npy'), data) 
-
-data = np.loadtxt(fdata1, skiprows=1) 
-np.save(fdata1.replace('.dat', '.npy'), data) 
-
-data = np.loadtxt(fdata2, skiprows=1) 
-np.save(fdata2.replace('.dat', '.npy'), data) 
-
+    header = "alpha, beta, gamma, Mnuvs, z, Muv, sig_z, sig_Muv"
+    for j, zname in enumerate(('z14', 'z11', 'z9')):
+        chunks = [r[j] for r in results if r[j].shape[0] > 0]
+        data = np.vstack(chunks)
+        fout = os.path.join(outdir, 'mock_N%i_%s.v1' % (Nmocks, zname))
+        #np.savetxt(fout + '.dat', data, header=header)
+        np.save(fout + '.npy', data)

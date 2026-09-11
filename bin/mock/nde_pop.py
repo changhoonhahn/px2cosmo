@@ -1,6 +1,6 @@
 '''
 
-script to train NPE for the population likelihood term  
+script to train NLE for the population likelihood term  
 
 
 '''
@@ -10,8 +10,6 @@ import numpy as np
 
 import torch
 import optuna
-
-from px2cosmo import util as UT
 
 from sbi.inference import NPE
 from sbi.neural_nets import posterior_nn
@@ -24,7 +22,7 @@ def parse_args():
             help="training data")
     parser.add_argument("--study-dir", required=True, 
             help="directory to save the optuna study")
-    parser.add_argument("--batch-size", type=int, default=50, 
+    parser.add_argument("--batch-size", type=int, default=512, 
             help="batch size") 
     parser.add_argument("--njobs", type=int, default=1, 
             help="number of optuna jobs") 
@@ -61,8 +59,8 @@ def main():
         device = "cpu"
     if args.verbose: print(f'device: {device}') 
 
-    # load data 
-    if args.verbose: print(f'loading data from {args.training_data_file}') 
+    # load data
+    if args.verbose: print(f'loading data from {args.training_data_file}')
     _data = np.load(args.training_data_file)
     omegas  = _data[:,:4]
     Xs      = _data[:,4:6]
@@ -70,15 +68,16 @@ def main():
     Nmock   = omegas.shape[0]
 
 
-    def Objective(trial): 
+    def Objective(trial):
         # hyperparameters
-        #nde_model   = trial.suggest_categorical("nde_model", ['zuko_maf', 'zuko_nsf'])
+        nde_model   = trial.suggest_categorical("nde_model", ['zuko_maf', 'zuko_nsf'])
         n_transf    = trial.suggest_int("n_transf", 3, 7)
         n_hidden    = trial.suggest_int("n_hidden", 64, 256, log=True)
         n_bins      = trial.suggest_int("n_bins", 5, 10)
+        lr          = trial.suggest_float("lr", 1e-4, 5e-3, log=True)
 
         # density estimator
-        nde = posterior_nn('zuko_maf', 
+        nde = posterior_nn(nde_model, 
                            hidden_features=n_hidden,
                            num_transforms=n_transf,
                            num_bins=n_bins)
@@ -86,26 +85,26 @@ def main():
 
         _omegas = torch.tensor(np.hstack([omegas, sigs]).astype(np.float32)).to(device)
         _Xs     = torch.tensor(Xs.astype(np.float32)).to(device)
-        if args.verbose: print('training data loaded to device') 
+        if args.verbose: print('training data loaded to device')
 
         # neural inference with staged training for pruning
         inference = NPE(density_estimator=nde, device=device)
         inference.append_simulations(_Xs, _omegas)
-            
+
         _ = inference.train(
                 training_batch_size=args.batch_size,
-                learning_rate=5e-4*(args.batch_size/50),
+                learning_rate=lr,
                 show_train_summary=False)
-        
+
         p_X_omegasig = inference.build_posterior()
 
-        # save trained NPE  
+        # save trained NPE
         fmodel  = os.path.join(args.study_dir, args.study_name, '%s.%i.pt' % (args.study_name, trial.number))
         torch.save(p_X_omegasig, fmodel)
-            
-        # best validation loss 
+
+        # best validation loss
         best_valid_log_prob = inference._summary['best_validation_loss'][-1]
-        return best_valid_log_prob 
+        return best_valid_log_prob
 
 
     sampler = optuna.samplers.TPESampler(n_startup_trials=n_startup_trials)
